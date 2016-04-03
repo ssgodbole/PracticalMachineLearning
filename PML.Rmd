@@ -1,0 +1,85 @@
+---
+title: "Practical Machine Learning"
+author: "Sneha Godbole"
+date: "April 3, 2016"
+output: html_document
+---
+
+##Objective
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+##Load libraries
+```{r, results='hide'}
+library(caret)
+library(rpart)
+library(e1071)
+library(randomForest)
+
+```
+
+##Load data sets
+```{r}
+
+trainingdata <- read.csv("pml-training.csv", stringsAsFactors = FALSE)
+testingdata <- read.csv("pml-testing.csv", stringsAsFactors = FALSE)
+
+```
+
+##Preprocessing data
+After observing the variables in the datasets, I see a few variables with a lot of NAs. These need to be removed from the dataset. Also, we only want to include observations of belt, arm, forearm, and dumble variables as mentioned in the project objective, that do not contain NAs. We subset the training dataset with these variables and the "classe" variable. The testing data set is subsetted with the required variables only as "classe" will be predicted.
+
+```{r}
+isNA <- sapply(trainingdata, function (x) any(is.na(x) | x == ""))
+isRequired <- !isNA & grepl("belt|[^(fore)]arm|dumbbell|forearm", names(isNA))
+requiredVariables <- names(isNA)[isRequired]
+
+trainingdata <- trainingdata[, c("classe", requiredVariables)]
+testingdata <- testingdata[, requiredVariables]
+```
+
+We also need to check if any variables have near zero variance and eliminate them from our datasets.
+
+```{r, results='hide'}
+zeroVar <- nearZeroVar(trainingdata, saveMetrics = TRUE)
+zeroVar
+```
+All observed values for zero variance are FALSE, so there is no need to eliminate any more vairables. Our datasets are ready for data modeling.
+
+##Data Modeling
+
+Let's split the training dataset into 60% training and 40% validation sets. The validation dataset will be used to cross validate our prediction function on the training dataset.
+
+```{r}
+inTrain <- createDataPartition(trainingdata$classe, p=0.6, list=FALSE)
+trainingdata_tr <- trainingdata[inTrain, ]
+trainingdata_val <- trainingdata[-inTrain, ]
+```
+
+###Decision Tree
+
+```{r}
+model_rpart <- train(classe~., method="rpart", data=trainingdata_tr)
+pred_rpart <- predict(model_rpart, newdata=trainingdata_val)
+confusionMatrix(pred_rpart, trainingdata_val$classe)
+```
+The accuracy of the decision tree is almost the same as chance - 50%, so this is not a good model to consider for our prediction.
+
+###Random Forests
+
+```{r}
+model_rf <- train(classe~., method="rf",
+                         trControl=trainControl(method = "cv", 5), 
+                         data=trainingdata_tr)
+
+pred_rf <- predict(model_rf, newdata=trainingdata_val)
+confusionMatrix(pred_rf, trainingdata_val$classe)
+```
+
+As expected the Random Forest model shows ~99% accuracy in the predictions. This is the model that we will select for predicting the "classe" variable on the 20 observations in the test dataset provided in this project.
+
+```{r}
+
+finalPredictions <- predict(model_rf, testingdata)
+finalPredictions
+
+```
