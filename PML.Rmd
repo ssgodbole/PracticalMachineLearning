@@ -73,9 +73,14 @@ model_rf <- train(classe~., method="rf",
 
 pred_rf <- predict(model_rf, newdata=trainingdata_val)
 confusionMatrix(pred_rf, trainingdata_val$classe)
+
+oose <- 100 - (mean((pred_rf == trainingdata_val$classe)*1)*100)
+oose
+
+
 ```
 
-As expected the Random Forest model shows ~99% accuracy in the predictions. This is the model that we will select for predicting the "classe" variable on the 20 observations in the test dataset provided in this project.
+As expected the Random Forest model shows ~99% accuracy. The out of sample error rate is `r oose`. This is the model that we will select for predicting the "classe" variable on the 20 observations in the test dataset provided in this project.
 
 ```{r}
 
